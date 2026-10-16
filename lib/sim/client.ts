@@ -1,0 +1,22 @@
+export type LiveOrder={id:string;sku:string;product:string;city:string;channel:string;qty:number;value:number;status:string;createdAt:string;customer:string;returned?:boolean};
+export type Notice={id:string;kind:'Alerts'|'Reports'|'System';title:string;body:string;time:string;read:boolean;href:string};
+const key='saleiq-operating-sim-v1';
+const cities=['Bengaluru','Mumbai','Delhi','Pune','Hyderabad','Chennai','Jaipur','Kochi'];
+const catalogue=[['KG-018','Mira Cane Tray',3290],['KG-031','Sora Linen Throw',2490],['KG-044','Nila Storage Basket',1890],['KG-061','Aru Table Lamp',4490],['KG-079','Kora Ceramic Set',1590]] as const;
+const channels=['Shopify','Amazon','WooCommerce'];
+export const uid=(prefix='id')=>`${prefix}_${Math.random().toString(36).slice(2,9)}`;
+export const seedOrders=():LiveOrder[]=>Array.from({length:42},(_,i)=>{const p=catalogue[i%catalogue.length];const qty=(i%3)+1;return{id:`KOR-${10388-i}`,sku:p[0],product:p[1],city:cities[i%cities.length],channel:channels[i%3],qty,value:p[2]*qty,status:i%11===0?'Returned':'Delivered',createdAt:new Date(Date.now()-i*47*60000).toISOString(),customer:['Ananya Rao','Meera Shah','Arjun Singh','Kavya Menon'][i%4],returned:i%11===0}});
+const initial=()=>({orders:seedOrders(),notifications:[
+ {id:'n1',kind:'Alerts',title:'Stock cover is thinning',body:'Mira Cane Tray has 6 days of cover remaining.',time:new Date(Date.now()-5*60000).toISOString(),read:false,href:'/insights'},
+ {id:'n2',kind:'Reports',title:'Monday performance brief is ready',body:'Your scheduled PDF was generated successfully.',time:new Date(Date.now()-42*60000).toISOString(),read:false,href:'/reports'},
+ {id:'n3',kind:'System',title:'Amazon sync completed',body:'1,184 orders reconciled with no changes.',time:new Date(Date.now()-2*3600000).toISOString(),read:true,href:'/sources'},
+ ...Array.from({length:22},(_,i)=>({id:`n${i+4}`,kind:(i%3===0?'Alerts':i%3===1?'Reports':'System') as Notice['kind'],title:['Revenue signal detected','Report viewed by Samira','Shopify sync finished'][i%3],body:['Amazon is ahead of its expected range.','Monthly commerce review received a new view.','Catalog quantities were refreshed.'][i%3],time:new Date(Date.now()-(i+3)*3600000).toISOString(),read:true,href:i%3===0?'/alerts':i%3===1?'/reports':'/sources'}))],
+ goals:[{id:'g1',metric:'Revenue',target:1800000,current:1428640},{id:'g2',metric:'Orders',target:4800,current:3842},{id:'g3',metric:'Gross margin',target:54,current:52.8}], rules:[{id:'r1',metric:'Return rate',condition:'above',threshold:6,enabled:true},{id:'r2',metric:'Revenue',condition:'below',threshold:42000,enabled:true}], pinned:[],onboarding:{source:false,query:false,goal:false,report:false,team:false},density:'comfortable'});
+export type SimState=ReturnType<typeof initial>;
+export function readSim():SimState {if(typeof window==='undefined') return initial();try{const raw=localStorage.getItem(key);return raw?JSON.parse(raw):initial()}catch{return initial()}}
+export function saveSim(next:SimState){localStorage.setItem(key,JSON.stringify(next));window.dispatchEvent(new Event('saleiq-sim'));}
+export function createOrder(input?:Partial<LiveOrder>):LiveOrder {const p=catalogue[Math.floor(Math.random()*catalogue.length)];const qty=input?.qty||1+Math.floor(Math.random()*2);return {id:`KOR-${10431+Math.floor(Math.random()*500)}`,sku:p[0],product:p[1],city:cities[Math.floor(Math.random()*cities.length)],channel:channels[Math.floor(Math.random()*channels.length)],qty,value:p[2]*qty,status:'Placed',createdAt:new Date().toISOString(),customer:['Ananya Rao','Meera Shah','Arjun Singh','Kavya Menon'][Math.floor(Math.random()*4)],...input};}
+export function addOrder(order:LiveOrder){const s=readSim();if(s.orders.some(x=>x.id===order.id))return;s.orders=[order,...s.orders].slice(0,500);if(order.value>25000)s.notifications=[{id:uid('n'),kind:'Alerts',title:'High-value order received',body:`${order.id} from ${order.city} is worth ₹${order.value.toLocaleString('en-IN')}.`,time:order.createdAt,read:false,href:'/orders'},...s.notifications];saveSim(s)}
+export function elapsed(value:string){const m=Math.max(0,Math.floor((Date.now()-new Date(value).getTime())/60000));return m<1?'just now':m<60?`${m} min ago`:m<1440?`${Math.floor(m/60)}h ago`:`${Math.floor(m/1440)}d ago`;}
+export function formatINR(value:number){return `₹ ${new Intl.NumberFormat('en-IN',{maximumFractionDigits:0}).format(value)}`}
+export async function simulateLatency(min=350,max=950){await new Promise(r=>setTimeout(r,min+Math.random()*(max-min)));}
